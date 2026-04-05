@@ -170,7 +170,20 @@ h1 {
 
 
 
-/* ── RESULT OVERLAY ── */
+.reset-btn {
+  padding: 6px 16px;
+  background: white;
+  color: #d45a7a;
+  border: 2px solid #d45a7a;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.reset-btn:hover { background: #d45a7a; color: white; }
 #overlay {
   display: none;
   position: fixed;
@@ -262,7 +275,10 @@ h1 {
   </div>
 </div>
 
-<div class="instruction">點空白格消圖 — 四個方向最近的圖中有兩個以上一樣就消除</div>
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+  <div class="instruction" style="margin:0;">點空白格消圖 — 四個方向最近的圖中有兩個以上一樣就消除</div>
+  <button class="reset-btn" onclick="startGame()">↺ 重新開始</button>
+</div>
 
 <div id="board-wrap">
   <div id="board"></div>
