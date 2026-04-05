@@ -254,7 +254,7 @@ h1 {
 </head>
 <body>
 
-<h1>🐾 貓咪消消樂</h1>
+<h1>🐾 焦焦消消樂</h1>
 
 <div class="hud">
   <div class="hud-item">
@@ -282,6 +282,11 @@ h1 {
 
 <div id="board-wrap">
   <div id="board"></div>
+</div>
+
+<div id="records-wrap" style="margin-top:14px;text-align:center;">
+  <div style="font-size:0.7rem;color:#c0a8aa;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">🏅 本次最佳紀錄（重整後消失）</div>
+  <div id="el-records" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;"></div>
 </div>
 
 
@@ -394,15 +399,19 @@ function shuffle(arr) {
 }
 
 function makeBoard() {
-  // Build 200 tiles: each type gets equal count
+  // Each type gets an even count so all tiles can potentially be paired
   const tiles = [];
   const perType = Math.floor(TOTAL / TYPES);
+  // Make sure perType is even
+  const evenPerType = perType % 2 === 0 ? perType : perType - 1;
   for (let t = 1; t <= TYPES; t++)
-    for (let i = 0; i < perType; i++) tiles.push(t);
-  while (tiles.length < TOTAL) tiles.push((tiles.length % TYPES) + 1);
+    for (let i = 0; i < evenPerType; i++) tiles.push(t);
+  // Fill remaining slots in pairs
+  let extra = TOTAL - tiles.length;
+  let t = 1;
+  while (extra >= 2) { tiles.push(t); tiles.push(t); t = (t % TYPES) + 1; extra -= 2; }
   shuffle(tiles);
 
-  // Place into grid (rest stays null = empty)
   const grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
   const positions = [];
   for (let r = 0; r < ROWS; r++)
@@ -609,8 +618,28 @@ function endGame(perfect, rem) {
     html += `<div class="result-row">失誤 ${missCount} 次 → <strong>+${penaltySec} 秒</strong></div>`;
   }
   html += `<div class="result-final">最終時間：<strong>${fmt(finalTime)}</strong></div>`;
+  if (perfect) addRecord(finalTime);
   document.getElementById('el-r-body').innerHTML = html;
   document.getElementById('overlay').classList.add('active');
+}
+
+// ── RECORDS ───────────────────────────────────────────────
+let records = []; // array of finalTime (seconds), sorted ascending, max 5
+
+function addRecord(finalTime) {
+  records.push(finalTime);
+  records.sort((a, b) => a - b);
+  if (records.length > 5) records = records.slice(0, 5);
+  renderRecords();
+}
+
+function renderRecords() {
+  const el = document.getElementById('el-records');
+  if (records.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = records.map((t, i) => {
+    const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+    return `<span style="background:white;border-radius:999px;padding:4px 14px;font-size:0.85rem;font-weight:800;color:#d45a7a;box-shadow:0 2px 8px rgba(212,90,122,0.12);">${medals[i]} ${fmt(t)}</span>`;
+  }).join('');
 }
 
 // ── START ─────────────────────────────────────────────────
