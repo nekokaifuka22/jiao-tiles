@@ -618,7 +618,7 @@ function endGame(perfect, rem) {
     html += `<div class="result-row">失誤 ${missCount} 次 → <strong>+${penaltySec} 秒</strong></div>`;
   }
   html += `<div class="result-final">最終時間：<strong>${fmt(finalTime)}</strong></div>`;
-  if (perfect) addRecord(finalTime);
+  addRecord(finalTime);
   document.getElementById('el-r-body').innerHTML = html;
   document.getElementById('overlay').classList.add('active');
 }
@@ -635,7 +635,6 @@ function addRecord(finalTime) {
 
 function renderRecords() {
   const el = document.getElementById('el-records');
-  if (records.length === 0) { el.innerHTML = ''; return; }
   el.innerHTML = records.map((t, i) => {
     const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
     return `<span style="background:white;border-radius:999px;padding:4px 14px;font-size:0.85rem;font-weight:800;color:#d45a7a;box-shadow:0 2px 8px rgba(212,90,122,0.12);">${medals[i]} ${fmt(t)}</span>`;
@@ -644,6 +643,7 @@ function renderRecords() {
 
 // ── START ─────────────────────────────────────────────────
 startGame();
+renderRecords();
 </script>
 </body>
 </html>
