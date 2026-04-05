@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>焦焦消消樂</title>
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #fef3ef;
+  font-family: 'M PLUS Rounded 1c', sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 18px 16px 32px;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: #d45a7a;
+  letter-spacing: 3px;
+  margin-bottom: 14px;
+}
+
+/* ── HUD ── */
+.hud {
+  display: flex;
+  background: white;
+  border-radius: 999px;
+  box-shadow: 0 2px 14px rgba(212,90,122,0.12);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.hud-item {
+  padding: 8px 22px;
+  text-align: center;
+  border-right: 1px solid #f0e8e4;
+}
+.hud-item:last-child { border-right: none; }
+
+.hud-label {
+  font-size: 0.62rem;
+  color: #c0a8aa;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 1px;
+}
+.hud-value {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #333;
+  line-height: 1.2;
+}
+.hud-value.red { color: #d45a7a; }
+
+/* ── INSTRUCTION ── */
+.instruction {
+  font-size: 0.78rem;
+  color: #c0a8aa;
+  margin-bottom: 10px;
+  letter-spacing: 0.5px;
+}
+
+/* ── BOARD ── */
+#board-wrap { overflow-x: auto; max-width: 100%; }
+
+#board {
+  display: grid;
+  grid-template-columns: repeat(20, 40px);
+  gap: 2px;
+  background: #ddd5cd;
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.cell {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  user-select: none;
+}
+
+/* Empty cell – checker pattern */
+.cell.empty {
+  background: #bdb4ac;
+  cursor: crosshair;
+}
+.cell.empty:hover { background: rgba(212,90,122,0.35); }
+
+/* Miss flash overlay */
+.cell.empty::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: transparent;
+  pointer-events: none;
+}
+.cell.miss-flash::after {
+  background: rgba(212,90,122,0.35);
+  animation: flash-fade 0.4s forwards;
+}
+@keyframes flash-fade {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Tile cell */
+.cell.tile {
+  background: white;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.07);
+}
+
+.tile-inner {
+  width: 32px;
+  height: 32px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  pointer-events: none;
+  overflow: hidden;
+}
+.tile-inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+/* Tile colors (placeholder) */
+.tile-1 .tile-inner { background: #ffb3c6; }
+.tile-2 .tile-inner { background: #a8d8ea; }
+.tile-3 .tile-inner { background: #ffd6a5; }
+.tile-4 .tile-inner { background: #b5ead7; }
+.tile-5 .tile-inner { background: #d4b8e0; }
+.tile-6 .tile-inner { background: #fff0a5; }
+
+/* Pop animation */
+@keyframes pop-out {
+  0%   { transform: scale(1);    opacity: 1; }
+  40%  { transform: scale(1.3);  opacity: 0.9; }
+  100% { transform: scale(0);    opacity: 0; }
+}
+.popping { animation: pop-out 0.28s cubic-bezier(0.36,0.07,0.19,0.97) forwards; }
+
+/* Shake animation for misses */
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%  { transform: translateX(-6px) rotate(-3deg); }
+  40%  { transform: translateX(6px) rotate(3deg); }
+  60%  { transform: translateX(-3px); }
+  80%  { transform: translateX(3px); }
+}
+.shaking { animation: shake 0.32s ease; }
+
+
+
+/* ── RESULT OVERLAY ── */
+#overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.42);
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(4px);
+}
+#overlay.active { display: flex; }
+
+.result-card {
+  background: white;
+  border-radius: 28px;
+  padding: 42px 52px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.22);
+  animation: card-in 0.45s cubic-bezier(0.34,1.56,0.64,1);
+  max-width: 90vw;
+}
+@keyframes card-in {
+  from { transform: scale(0.7) translateY(20px); opacity: 0; }
+  to   { transform: scale(1)   translateY(0);    opacity: 1; }
+}
+
+.result-emoji { font-size: 3.5rem; margin-bottom: 8px; }
+.result-title {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #d45a7a;
+  margin-bottom: 18px;
+}
+.result-row {
+  font-size: 0.92rem;
+  color: #999;
+  margin: 5px 0;
+}
+.result-row strong { color: #444; font-size: 1.1rem; }
+.result-final {
+  font-size: 1rem;
+  color: #888;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f0ebe8;
+}
+.result-final strong { color: #d45a7a; font-size: 1.7rem; }
+
+.play-btn {
+  margin-top: 26px;
+  display: inline-block;
+  padding: 13px 42px;
+  background: #d45a7a;
+  color: white;
+  border: none;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #a03d5c;
+  transition: transform 0.1s, box-shadow 0.1s;
+  letter-spacing: 1px;
+}
+.play-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 0 #a03d5c; }
+.play-btn:active { transform: translateY(2px);  box-shadow: 0 2px 0 #a03d5c; }
+</style>
+</head>
+<body>
+
+<h1>🐾 貓咪消消樂</h1>
+
+<div class="hud">
+  <div class="hud-item">
+    <span class="hud-label">時間</span>
+    <span class="hud-value" id="el-timer">00:00</span>
+  </div>
+  <div class="hud-item">
+    <span class="hud-label">已消</span>
+    <span class="hud-value" id="el-score">0</span>
+  </div>
+  <div class="hud-item">
+    <span class="hud-label">剩餘</span>
+    <span class="hud-value" id="el-remain">200</span>
+  </div>
+  <div class="hud-item">
+    <span class="hud-label">罰時</span>
+    <span class="hud-value red" id="el-miss">+0秒</span>
+  </div>
+</div>
+
+<div class="instruction">點空白格消圖 — 四個方向最近的圖中有兩個以上一樣就消除</div>
+
+<div id="board-wrap">
+  <div id="board"></div>
+</div>
+
+
+
+<div id="overlay">
+  <div class="result-card">
+    <div class="result-emoji" id="el-r-emoji">🎊</div>
+    <div class="result-title"  id="el-r-title">完全消除！！</div>
+    <div id="el-r-body"></div>
+    <button class="play-btn" onclick="startGame()">再玩一次</button>
+  </div>
+</div>
+
+<script>
+// ── SOUND ─────────────────────────────────────────────────
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function resumeAudio() { if (audioCtx.state === 'suspended') audioCtx.resume(); }
+
+function playTone({ freq = 440, type = 'sine', gain = 0.4, attack = 0.01, decay = 0.15, start = 0 }) {
+  const t = audioCtx.currentTime + start;
+  const osc = audioCtx.createOscillator();
+  const env = audioCtx.createGain();
+  osc.connect(env);
+  env.connect(audioCtx.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  env.gain.setValueAtTime(0, t);
+  env.gain.linearRampToValueAtTime(gain, t + attack);
+  env.gain.exponentialRampToValueAtTime(0.001, t + attack + decay);
+  osc.start(t);
+  osc.stop(t + attack + decay + 0.05);
+}
+
+function sfxPop(count) {
+  // 消除成功：輕快 pop，消愈多音愈高
+  resumeAudio();
+  const baseFreq = 520 + count * 30;
+  playTone({ freq: baseFreq,       type: 'triangle', gain: 0.35, attack: 0.005, decay: 0.1  });
+  playTone({ freq: baseFreq * 1.5, type: 'sine',     gain: 0.2,  attack: 0.01,  decay: 0.08, start: 0.06 });
+}
+
+function sfxMiss() {
+  // 失誤：低悶的 bonk
+  resumeAudio();
+  const osc = audioCtx.createOscillator();
+  const env = audioCtx.createGain();
+  osc.connect(env);
+  env.connect(audioCtx.destination);
+  osc.type = 'sawtooth';
+  const t = audioCtx.currentTime;
+  osc.frequency.setValueAtTime(180, t);
+  osc.frequency.exponentialRampToValueAtTime(60, t + 0.15);
+  env.gain.setValueAtTime(0.3, t);
+  env.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+  osc.start(t);
+  osc.stop(t + 0.25);
+}
+
+function sfxWin() {
+  // 完全消除：上行勝利音
+  resumeAudio();
+  const notes = [523, 659, 784, 1047];
+  notes.forEach((freq, i) => {
+    playTone({ freq, type: 'triangle', gain: 0.35, attack: 0.01, decay: 0.25, start: i * 0.1 });
+  });
+}
+
+function sfxLose() {
+  // 卡住：下行哀怨音
+  resumeAudio();
+  const notes = [392, 330, 294, 220];
+  notes.forEach((freq, i) => {
+    playTone({ freq, type: 'sine', gain: 0.3, attack: 0.02, decay: 0.3, start: i * 0.12 });
+  });
+}
+
+// ── SETTINGS ──────────────────────────────────────────────
+const COLS = 20, ROWS = 13;
+const TOTAL = 200, TYPES = 6;
+const MISS_PENALTY   = 5;   // seconds added per mistake
+const REMAIN_PENALTY = 3;   // seconds added per tile left when stuck
+
+// 替換成自己的圖片路徑（放在 images/ 資料夾）
+// 順序: [unused, 1.png, 2.png, 3.png, 4.png, 5.png, 6.png]
+const IMAGE_PATHS = [
+  null,
+  'images/1.png',
+  'images/2.png',
+  'images/3.png',
+  'images/4.png',
+  'images/5.png',
+  'images/6.png',
+];
+
+// 圖片讀不到時顯示的 emoji（佔位符）
+const EMOJIS = [null, '👂', '👁️', '👃', '🐾', '🦶', '🐱'];
+
+// ── STATE ─────────────────────────────────────────────────
+let board, timerSec, timerInterval, scored, missCount, penaltySec;
+let isAnimating, gameStarted, gameActive;
+
+// ── INIT ──────────────────────────────────────────────────
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function makeBoard() {
+  // Build 200 tiles: each type gets equal count
+  const tiles = [];
+  const perType = Math.floor(TOTAL / TYPES);
+  for (let t = 1; t <= TYPES; t++)
+    for (let i = 0; i < perType; i++) tiles.push(t);
+  while (tiles.length < TOTAL) tiles.push((tiles.length % TYPES) + 1);
+  shuffle(tiles);
+
+  // Place into grid (rest stays null = empty)
+  const grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+  const positions = [];
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      positions.push([r, c]);
+  shuffle(positions);
+  for (let i = 0; i < TOTAL; i++)
+    grid[positions[i][0]][positions[i][1]] = tiles[i];
+
+  return grid;
+}
+
+function startGame() {
+  clearInterval(timerInterval);
+  board       = makeBoard();
+  timerSec    = 0;
+  scored      = 0;
+  missCount   = 0;
+  penaltySec  = 0;
+  isAnimating = false;
+  gameStarted = false;
+  gameActive  = true;
+  document.getElementById('overlay').classList.remove('active');
+  renderAll();
+  updateHUD();
+}
+
+// ── RENDER ────────────────────────────────────────────────
+function renderAll() {
+  const el = document.getElementById('board');
+  el.innerHTML = '';
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      el.appendChild(buildCell(r, c));
+}
+
+function buildCell(r, c) {
+  const div = document.createElement('div');
+  div.dataset.r = r;
+  div.dataset.c = c;
+
+  if (board[r][c] === null) {
+    div.className = 'cell empty';
+    div.addEventListener('click', () => handleClick(r, c));
+  } else {
+    const t = board[r][c];
+    div.className = `cell tile tile-${t}`;
+
+    const inner = document.createElement('div');
+    inner.className = 'tile-inner';
+
+    // Try real image first, fall back to emoji
+    const img = document.createElement('img');
+    img.src = IMAGE_PATHS[t];
+    img.alt = EMOJIS[t];
+    img.onerror = () => {
+      inner.innerHTML = '';
+      inner.textContent = EMOJIS[t];
+    };
+    inner.appendChild(img);
+    div.appendChild(inner);
+  }
+  return div;
+}
+
+function getEl(r, c) {
+  return document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+}
+
+// ── GAME LOGIC ────────────────────────────────────────────
+// Find nearest tile in each direction from (r, c)
+function getNeighbors(r, c) {
+  const result = [];
+  // Up
+  for (let i = r - 1; i >= 0; i--)
+    if (board[i][c] !== null) { result.push({r: i, c, t: board[i][c]}); break; }
+  // Down
+  for (let i = r + 1; i < ROWS; i++)
+    if (board[i][c] !== null) { result.push({r: i, c, t: board[i][c]}); break; }
+  // Left
+  for (let j = c - 1; j >= 0; j--)
+    if (board[r][j] !== null) { result.push({r, c: j, t: board[r][j]}); break; }
+  // Right
+  for (let j = c + 1; j < COLS; j++)
+    if (board[r][j] !== null) { result.push({r, c: j, t: board[r][j]}); break; }
+  return result;
+}
+
+// Among neighbors, return tiles that share a type with another neighbor
+function getToRemove(neighbors) {
+  const byType = {};
+  for (const n of neighbors) {
+    if (!byType[n.t]) byType[n.t] = [];
+    byType[n.t].push(n);
+  }
+  const remove = [];
+  for (const t in byType)
+    if (byType[t].length >= 2) remove.push(...byType[t]);
+  return remove;
+}
+
+function handleClick(r, c) {
+  if (!gameActive || isAnimating || board[r][c] !== null) return;
+
+  // Start timer on first valid click
+  if (!gameStarted) {
+    gameStarted = true;
+    timerInterval = setInterval(() => { timerSec++; updateHUD(); }, 1000);
+  }
+
+  const neighbors  = getNeighbors(r, c);
+  const toRemove   = getToRemove(neighbors);
+
+  if (toRemove.length === 0) {
+    // MISS: add penalty time
+    missCount++;
+    penaltySec += MISS_PENALTY;
+    timerSec   += MISS_PENALTY;
+    sfxMiss();
+    updateHUD();
+
+    const cell = getEl(r, c);
+    cell.classList.add('miss-flash', 'shaking');
+    // Re-trigger animation if clicked again quickly
+    void cell.offsetWidth;
+    cell.addEventListener('animationend', () => {
+      cell.classList.remove('miss-flash', 'shaking');
+    }, { once: true });
+    return;
+  }
+
+  // MATCH: animate and remove
+  sfxPop(toRemove.length);
+  isAnimating = true;
+  for (const n of toRemove) {
+    const cell = getEl(n.r, n.c);
+    if (cell) cell.classList.add('popping');
+  }
+
+  setTimeout(() => {
+    for (const n of toRemove) {
+      board[n.r][n.c] = null;
+      const old = getEl(n.r, n.c);
+      if (old) old.replaceWith(buildCell(n.r, n.c));
+    }
+    scored += toRemove.length;
+    isAnimating = false;
+    updateHUD();
+    checkEnd();
+  }, 300);
+}
+
+// ── HUD ───────────────────────────────────────────────────
+function fmt(s) {
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function updateHUD() {
+  document.getElementById('el-timer').textContent  = fmt(timerSec);
+  document.getElementById('el-score').textContent  = scored;
+  document.getElementById('el-remain').textContent = TOTAL - scored;
+  document.getElementById('el-miss').textContent   = `+${penaltySec}秒`;
+}
+
+// ── END CONDITION ─────────────────────────────────────────
+function countRemaining() {
+  let n = 0;
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (board[r][c] !== null) n++;
+  return n;
+}
+
+function hasValidMove() {
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (board[r][c] === null && getToRemove(getNeighbors(r, c)).length > 0)
+        return true;
+  return false;
+}
+
+function checkEnd() {
+  const rem = countRemaining();
+  if (rem === 0)      { endGame(true,  0);   return; }
+  if (!hasValidMove()) { endGame(false, rem); }
+}
+
+function endGame(perfect, rem) {
+  gameActive = false;
+  clearInterval(timerInterval);
+  if (perfect) sfxWin(); else sfxLose();
+
+  const remPenalty = rem * REMAIN_PENALTY;
+  const finalTime  = timerSec + remPenalty;
+
+  document.getElementById('el-r-emoji').textContent = perfect ? '🎊' : '😿';
+  document.getElementById('el-r-title').textContent = perfect ? '完全消除！！' : '卡住了...';
+
+  let html = '';
+  if (!perfect) {
+    html += `<div class="result-row">剩餘 ${rem} 個 → <strong>+${remPenalty} 秒</strong></div>`;
+  }
+  if (missCount > 0) {
+    html += `<div class="result-row">失誤 ${missCount} 次 → <strong>+${penaltySec} 秒</strong></div>`;
+  }
+  html += `<div class="result-final">最終時間：<strong>${fmt(finalTime)}</strong></div>`;
+  document.getElementById('el-r-body').innerHTML = html;
+  document.getElementById('overlay').classList.add('active');
+}
+
+// ── START ─────────────────────────────────────────────────
+startGame();
+</script>
+</body>
+</html>
